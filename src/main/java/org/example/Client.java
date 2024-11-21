@@ -7,7 +7,7 @@ import java.net.Socket;
 import java.util.Random;
 import java.util.Scanner;
 
-public class GreetingClient {
+public class Client {
     public static void main(String[] args)
     {
         try {
@@ -65,11 +65,41 @@ public class GreetingClient {
 
             System.out.println("Tajný klíč k šifrování Ka,b = "
                     + Kab);
+
+            // Prompt user for text to encrypt
+            System.out.println("Zadejte text k zašifrování (podpora české abecedy):");
+            String plaintext = scanner.nextLine();
+
+            // Encrypt the text
+            String encryptedText = encryptText(plaintext, Kab);
+            System.out.println("Zašifrovaný text: " + encryptedText);
+
+            out.writeUTF(encryptedText); // Sending Ya
+
             client.close();
         }
         catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    // Encryption function
+    public static String encryptText(String plaintext, long key) {
+        String alphabet = "AaÁáBbCcČčDdĎďEeĚěÉéFfGgHhIiJjKkLlMmNnOoÓóPpQqRrŘřSsŠšTtŤťUuÚúŮůVvWwXxYyZzŽž"; // Czech alphabet
+        StringBuilder encrypted = new StringBuilder();
+        int mod = alphabet.length();
+
+        for (char c : plaintext.toCharArray()) {
+            if (alphabet.indexOf(c) != -1) {
+                // Handle case preservation while applying encryption
+                int newIndex = (alphabet.indexOf(c) + (int) key) % mod;
+                encrypted.append(alphabet.charAt(newIndex));
+            } else {
+                // Keep non-alphabet characters as is
+                encrypted.append(c);
+            }
+        }
+        return encrypted.toString();
     }
 
 

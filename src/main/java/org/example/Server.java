@@ -8,7 +8,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 
-public class GreetingServer {
+public class Server {
     public static void main(String[] args) throws IOException
     {
         try {
@@ -57,6 +57,15 @@ public class GreetingServer {
 
             System.out.println("Tajný klíč k šifrování Kb,a = "
                     + Kba);
+
+            String encryptedText = in.readUTF();
+
+            System.out.println("Přijatý zašifrovaný text: \n" + encryptedText);
+
+            // Decrypt the text
+            String decryptedText = decryptText(encryptedText, Kba);
+            System.out.println("Dešifrovaný text: " + decryptedText);
+
             server.close();
         }
 
@@ -65,6 +74,24 @@ public class GreetingServer {
         }
         catch (IOException e) {
         }
+    }
+
+    public static String decryptText(String encryptedText, long key) {
+        String alphabet = "AaÁáBbCcČčDdĎďEeĚěÉéFfGgHhIiJjKkLlMmNnOoÓóPpQqRrŘřSsŠšTtŤťUuÚúŮůVvWwXxYyZzŽž"; // Czech alphabet
+        StringBuilder decrypted = new StringBuilder();
+        int mod = alphabet.length();
+
+        for (char c : encryptedText.toCharArray()) {
+            if (alphabet.indexOf(c) != -1) {
+                // Handle case preservation while applying decryption
+                int newIndex = ((alphabet.indexOf(c) - (int) key) % mod + mod) % mod; // Fix for negative index
+                decrypted.append(alphabet.charAt(newIndex));
+            } else {
+                // Keep non-alphabet characters as is
+                decrypted.append(c);
+            }
+        }
+        return decrypted.toString();
     }
 
     public static long modExp(long base, long exp, long mod) {
