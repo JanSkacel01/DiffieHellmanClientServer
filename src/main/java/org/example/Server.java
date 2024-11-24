@@ -12,60 +12,62 @@ public class Server {
     public static void main(String[] args) throws IOException
     {
         try {
-            int port = 8088;
+            int port = 8088; // Port pro komunikaci na localhostu
 
-            // Server Key
-            long Xb = 11;
+            long Xb = 11; // Privátní klíč serveru
 
-            // Client p, g, and key
+            // Klientovo Q,G, a veřejný klíč Ya
+            // Serverův veřejný klíč a společný klíč Kba
             long clientQ, clientG, clientYa, Yb, Kba;
             String Ybstr;
 
-            // Established the Connection
+            // Otevření spojení pro klienta
             ServerSocket serverSocket = new ServerSocket(port);
             System.out.println("Čekám na klienta na portu " + serverSocket.getLocalPort() + "...");
+
+            // Přijetí klienta
             Socket server = serverSocket.accept();
             System.out.println("Připojeno k " + server.getRemoteSocketAddress());
 
-            // Server's Private Key
+            // Serverův privátní klíč
             System.out.println("Serverův privátní klíč =  " + Xb);
 
-            // Accepts the data from client
+            // Přijetí dat od klienta (q, g, Ya)
             DataInputStream in = new DataInputStream(server.getInputStream());
 
-            clientQ = Long.parseLong(in.readUTF()); // to accept p
+            clientQ = Long.parseLong(in.readUTF());
             System.out.println("Klientova hodnota q = " + clientQ);
 
-            clientG = Long.parseLong(in.readUTF()); // to accept g
+            clientG = Long.parseLong(in.readUTF());
             System.out.println("Klientova hodnota g = " + clientG);
 
-            clientYa = Long.parseLong(in.readUTF()); // to accept A
+            clientYa = Long.parseLong(in.readUTF());
             System.out.println("Veřejný klíč klienta = " + clientYa);
 
+            // Výpočet veřejného klíče Yb
             Yb = modExp(clientG, Xb, clientQ);
             Ybstr = Long.toString(Yb);
 
-            // Sends data to client
-            // Value of B
+            // Vytvoření output streamu pro klienta
             OutputStream outToclient = server.getOutputStream();
             DataOutputStream out = new DataOutputStream(outToclient);
 
-            out.writeUTF(Ybstr); // Sending B
+            out.writeUTF(Ybstr); // Odesílám veřejný klíč Yb
 
+            // Výpočet společného klíče
             Kba = modExp(clientYa, Xb, clientQ);
-         //   Kba = ((Math.pow(clientYa, Xb)) % clientQ); // calculation of Bdash
-
             System.out.println("Tajný klíč k šifrování Kb,a = "
                     + Kba);
 
+            // Přijetí zašiforovaného textu od klienta
             String encryptedText = in.readUTF();
-
             System.out.println("Přijatý zašifrovaný text: \n" + encryptedText);
 
-            // Decrypt the text
+            // Dešiforvání zašiforovaného textu
             String decryptedText = decryptText(encryptedText, Kba);
             System.out.println("Dešifrovaný text: " + decryptedText);
 
+            // Uzavření spojení
             server.close();
         }
 
@@ -73,40 +75,41 @@ public class Server {
             System.out.println("Socket timed out!");
         }
         catch (IOException e) {
+            System.out.println(e.getMessage());
         }
     }
 
+    // Dešiforvání zašiforovaného textu - Caesarova šifra
     public static String decryptText(String encryptedText, long key) {
-        String alphabet = "AaÁáBbCcČčDdĎďEeĚěÉéFfGgHhIiJjKkLlMmNnOoÓóPpQqRrŘřSsŠšTtŤťUuÚúŮůVvWwXxYyZzŽž"; // Czech alphabet
+        String alphabet = "AaÁáBbCcČčDdĎďEeĚěÉéFfGgHhIiJjKkLlMmNnOoÓóPpQqRrŘřSsŠšTtŤťUuÚúŮůVvWwXxYyZzŽž";
         StringBuilder decrypted = new StringBuilder();
         int mod = alphabet.length();
 
         for (char c : encryptedText.toCharArray()) {
             if (alphabet.indexOf(c) != -1) {
-                // Handle case preservation while applying decryption
-                int newIndex = ((alphabet.indexOf(c) - (int) key) % mod + mod) % mod; // Fix for negative index
+                int newIndex = ((alphabet.indexOf(c) - (int) key) % mod + mod) % mod;
                 decrypted.append(alphabet.charAt(newIndex));
             } else {
-                // Keep non-alphabet characters as is
                 decrypted.append(c);
             }
         }
         return decrypted.toString();
     }
 
+
+    /* Optimalizovaná funkce pro modulární exponentaci pomocí metody “exponentiation by squaring”.
+    Používá se v kryptografii, protože je efektivní i pro velmi velká čísla díky
+    postupnému snižování velikosti exponentu a práci se zbytky místo kompletních čísel. */
     public static long modExp(long base, long exp, long mod) {
         long result = 1;
-        base = base % mod; // Ensure base is within mod initially
+        base = base % mod;
 
         while (exp > 0) {
-            // If exp is odd, multiply base with result
             if ((exp & 1) == 1) {
                 result = (result * base) % mod;
             }
-
-            // Square the base and reduce exp by half
             base = (base * base) % mod;
-            exp = exp >> 1; // Equivalent to exp /= 2
+            exp = exp >> 1;
         }
 
         return result;

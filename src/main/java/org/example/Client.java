@@ -11,71 +11,75 @@ public class Client {
     public static void main(String[] args)
     {
         try {
-            String pstr, gstr, Yastr;
+            //Název serveru a jeho port
             String serverName = "localhost";
             int port = 8088;
 
+            //Privátní klíč
             long xa = 15;
 
-            long Kab, Yb;
+            // Veřejné hodnoty q,g
+            // veřejné klíče serveru i klienta (Ya, Yb)
+            // společný klíč Kab
+            long q,g,Kab,Ya, Yb;
+            String pstr, gstr, Yastr;
 
+            // Zadání prvočísla q a čísla g, nebo jejich generování
             Scanner scanner = new Scanner(System.in);
-
-            System.out.println("Zadejte dvě čísla (g a q). Pro automatické generování nechte prázdné:");
-
-            long q = getPrimeFromUserOrGenerate(scanner, 10000);
-            long g = getNumber(scanner, q);
-
+            System.out.println("Zadejte dvě čísla (q a g). Pro automatické generování nechte prázdné:");
+            q = getPrimeFromUserOrGenerate(scanner, 10000);
+            g = getNumber(scanner, q);
             System.out.println("Veřejné hodnoty:");
             System.out.println("q = " + q);
             System.out.println("g = " + g);
 
-            // Established the connection
+            // Vytvoření připojení k serveru
             System.out.println("Připojuji se na " + serverName
                     + " na portu " + port);
             Socket client = new Socket(serverName, port);
             System.out.println("Připojeno k "
                     + client.getRemoteSocketAddress());
 
-            // Sends the data to client
+            // Vytvoření output streamu
             OutputStream outToServer = client.getOutputStream();
             DataOutputStream out = new DataOutputStream(outToServer);
 
+            // odeslání hodnot q, g,
             pstr = Long.toString(q);
-            out.writeUTF(pstr); // Sending p
-
+            out.writeUTF(pstr);
             gstr = Long.toString(g);
-            out.writeUTF(gstr); // Sending g
+            out.writeUTF(gstr);
 
-            long Ya = modExp(g, xa, q); // calculation of Ya
+            // Výpočet a odeslání veřejného klíče Ya
+            Ya = modExp(g, xa, q);
             Yastr = Long.toString(Ya);
-            out.writeUTF(Yastr); // Sending Ya
+            out.writeUTF(Yastr);
 
-            // Client's Private Key
+            // Klientův privátní klíč
             System.out.println("Klientův privátní klíč = " + xa);
 
-            // Accepts the data
+            // Vytvoření input streamu
             DataInputStream in = new DataInputStream(client.getInputStream());
 
+            // příjmutí veřejného klíče serveru
             Yb = Long.parseLong(in.readUTF());
             System.out.println("Veřejný klíč serveru = " + Yb);
 
+            // Výpočet společného klíče Kab
             Kab = modExp(Yb, xa, q);
-            //Kab = ((Math.pow(Yb, xa)) % q); // calculation of Adash
-
             System.out.println("Tajný klíč k šifrování Ka,b = "
                     + Kab);
 
-            // Prompt user for text to encrypt
+            // Načtení textu od uživatele
             System.out.println("Zadejte text k zašifrování (podpora české abecedy):");
             String plaintext = scanner.nextLine();
 
-            // Encrypt the text
+            // Zašiforvání textu a odeslání do serveru
             String encryptedText = encryptText(plaintext, Kab);
             System.out.println("Zašifrovaný text: " + encryptedText);
+            out.writeUTF(encryptedText);
 
-            out.writeUTF(encryptedText); // Sending Ya
-
+            // Uzavření spojení
             client.close();
         }
         catch (Exception e) {
@@ -83,7 +87,7 @@ public class Client {
         }
     }
 
-    // Encryption function
+    // Šifrpvání textu pomocí Caesaraovy sifry
     public static String encryptText(String plaintext, long key) {
         String alphabet = "AaÁáBbCcČčDdĎďEeĚěÉéFfGgHhIiJjKkLlMmNnOoÓóPpQqRrŘřSsŠšTtŤťUuÚúŮůVvWwXxYyZzŽž"; // Czech alphabet
         StringBuilder encrypted = new StringBuilder();
@@ -91,76 +95,16 @@ public class Client {
 
         for (char c : plaintext.toCharArray()) {
             if (alphabet.indexOf(c) != -1) {
-                // Handle case preservation while applying encryption
                 int newIndex = (alphabet.indexOf(c) + (int) key) % mod;
                 encrypted.append(alphabet.charAt(newIndex));
             } else {
-                // Keep non-alphabet characters as is
                 encrypted.append(c);
             }
         }
         return encrypted.toString();
     }
 
-
-    public static long generateRandomPrime(long lowerBound, long upperBound) {
-        Random random = new Random();
-
-        if (lowerBound > upperBound) {
-            throw new IllegalArgumentException("Lower bound must be less than or equal to the upper bound.");
-        }
-
-        while (true) {
-            long candidate = random.nextLong(upperBound - lowerBound + 1) + lowerBound;
-
-            if (isPrime(candidate)) {
-                return candidate;
-            }
-        }
-    }
-
-    // Helper function to check if a number is prime
-    public static boolean isPrime(long number) {
-        if (number < 2) return false;
-        if (number == 2 || number == 3) return true;
-        if (number % 2 == 0 || number % 3 == 0) return false;
-
-        long sqrt = (long) Math.sqrt(number);
-        for (long i = 5; i <= sqrt; i += 6) {
-            if (number % i == 0 || number % (i + 2) == 0) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    public static long getNumber(Scanner scanner, long maxLimit) {
-        Random random = new Random();
-        long result = -1;
-
-        while (result <= 0 || result >= maxLimit) {
-            System.out.print("Zadejte g: ");
-            String input = scanner.nextLine();
-
-            if (input.isEmpty()) {
-                result = 1 + random.nextLong(maxLimit - 1); // Generate random number between 1 and maxLimit-1
-            } else {
-                try {
-                    result = Long.parseLong(input);
-                } catch (NumberFormatException e) {
-                    System.out.println("Špatný vstup. Zkuste to znovu");
-                    result = -1;
-                }
-            }
-
-            if (result <= 0 || result >= maxLimit) {
-                System.out.println("Číslo musí být větší než nula a menší než" + maxLimit + ".");
-            }
-        }
-        System.out.println("g bylo vygenerováno jako: " + result);
-        return result;
-    }
-
+    // Načtení prvočísla od uživatele, nebo vygenerování náhodného
     public static long getPrimeFromUserOrGenerate(Scanner scanner, long upperBound) {
         while (true) {
             System.out.print("Zadejte q: ");
@@ -185,19 +129,82 @@ public class Client {
         }
     }
 
+    // Generování náhodného prvočísla
+    public static long generateRandomPrime(long lowerBound, long upperBound) {
+        Random random = new Random();
+
+        if (lowerBound > upperBound) {
+            throw new IllegalArgumentException("Lower bound must be less than or equal to the upper bound.");
+        }
+
+        while (true) {
+            long candidate = random.nextLong(upperBound - lowerBound + 1) + lowerBound;
+
+            if (isPrime(candidate)) {
+                return candidate;
+            }
+        }
+    }
+
+    // Zjišťuje zda je číslo prvočíslo
+    public static boolean isPrime(long number) {
+        if (number < 2) return false;
+        if (number == 2 || number == 3) return true;
+        if (number % 2 == 0 || number % 3 == 0) return false;
+
+        long sqrt = (long) Math.sqrt(number);
+        for (long i = 5; i <= sqrt; i += 6) {
+            if (number % i == 0 || number % (i + 2) == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /* Načte g od uživatele, nebo vygeneruje náhodné.
+      g musí být větší než nula a menší než maxLimit (q).
+     */
+    public static long getNumber(Scanner scanner, long maxLimit) {
+        Random random = new Random();
+        long result = -1;
+
+        while (result <= 0 || result >= maxLimit) {
+            System.out.print("Zadejte g: ");
+            String input = scanner.nextLine();
+
+            if (input.isEmpty()) {
+                result = 1 + random.nextLong(maxLimit - 1);
+            } else {
+                try {
+                    result = Long.parseLong(input);
+                } catch (NumberFormatException e) {
+                    System.out.println("Špatný vstup. Zkuste to znovu");
+                    result = -1;
+                }
+            }
+
+            if (result <= 0 || result >= maxLimit) {
+                System.out.println("Číslo musí být větší než nula a menší než" + maxLimit + ".");
+            }
+        }
+        System.out.println("g bylo vygenerováno jako: " + result);
+        return result;
+    }
+
+    /* Optimalizovaná funkce pro modulární exponentaci pomocí metody “exponentiation by squaring”.
+   Používá se v kryptografii, protože je efektivní i pro velmi velká čísla díky
+   postupnému snižování velikosti exponentu a práci se zbytky místo kompletních čísel. */
     public static long modExp(long base, long exp, long mod) {
         long result = 1;
-        base = base % mod; // Ensure base is within mod initially
+        base = base % mod;
 
         while (exp > 0) {
-            // If exp is odd, multiply base with result
             if ((exp & 1) == 1) {
                 result = (result * base) % mod;
             }
 
-            // Square the base and reduce exp by half
             base = (base * base) % mod;
-            exp = exp >> 1; // Equivalent to exp /= 2
+            exp = exp >> 1;
         }
 
         return result;
